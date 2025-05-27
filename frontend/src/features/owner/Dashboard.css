@@ -1,0 +1,9 @@
+.dashboard-card {
+  cursor: pointer;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+  transform: translateY(-4px);
+}

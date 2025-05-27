@@ -1,0 +1,50 @@
+/* Reset common margins and paddings */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Set a pleasant, neutral font for the whole app */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f9fafb;
+  color: #111;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Make images and videos responsive */
+img,
+video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Anchor tag default styles */
+a {
+  text-decoration: none;
+  color: inherit; /* inherit color from parent to avoid conflicts */
+}
+
+/* Lists without default bullets */
+ul,
+ol {
+  list-style: none;
+}
+
+/* Utility helper for clearfix */
+.clearfix::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
