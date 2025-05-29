@@ -1,81 +1,154 @@
-import React, { useState, useEffect, useRef } from 'react';
-import DashboardLayout from "../../layouts/DashboardLayout";
-import "./employeeDashboard.css"
+// src/pages/employee/EmployeeDashboard.jsx
+import React, { useState, useEffect } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout';
+import ProductTable from '../../components/ProductTable';
+import {
+  fetchProducts,
+  fetchSummaryReport,
+  downloadExpiredItemsPDF,
+  downloadLowStockPDF,
+  downloadSummaryPDF
+} from '../../services/productAPI';
 
 export default function EmployeeDashboard({ onLogout }) {
-  const [date, setDate] = useState('');
-  const dateInputRef = useRef(null);
+  const [products, setProducts] = useState([]);
+  const [summary, setSummary]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
 
-  // Set today's date on mount
   useEffect(() => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    setDate(`${yyyy}-${mm}-${dd}`);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No auth token');
+      setLoading(false);
+      return;
+    }
+
+    Promise.all([
+      fetchProducts(token),
+      fetchSummaryReport(token)
+    ])
+      .then(([productsData, summaryData]) => {
+        setProducts(productsData);
+        setSummary(summaryData);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Failed to load dashboard data');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  // When the formatted date is clicked, show the native date picker
-  const handleDateClick = () => {
-    if (dateInputRef.current) {
-      dateInputRef.current.showPicker?.() || dateInputRef.current.click();
+  const downloadReport = async (type) => {
+    const token = localStorage.getItem('token');
+    if (!token) return alert('No auth token');
+
+    const map = {
+      expired: { fn: downloadExpiredItemsPDF, filename: 'expired_products_report.pdf' },
+      refill:  { fn: downloadLowStockPDF,       filename: 'low_stock_report.pdf' },
+      summary: { fn: downloadSummaryPDF,        filename: 'inventory_summary_report.pdf' }
+    }[type];
+
+    try {
+      const blob = await map.fn(token);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = map.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert(`Error downloading ${type} report: ${e.message}`);
     }
   };
 
-  // Format date to something like "May 26"
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const options = { month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <p>Loading…</p>
+      </DashboardLayout>
+    );
+  }
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="alert alert-danger">{error}</div>
+      </DashboardLayout>
+    );
+  }
+
+  const totalCategories = Object.keys(summary.products_by_category || {}).length;
 
   return (
     <DashboardLayout>
-      <div>
-        {/* Header with logout */}
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h3>Welcome, Employee.</h3>
-          <button className="btn btn-outline-secondary" onClick={onLogout}>
-            Logout
-          </button>
-        </div>
+      {/* Header */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h3>Welcome, Employee.</h3>
+        <button className="btn btn-outline-secondary" onClick={onLogout}>
+          Logout
+        </button>
+      </div>
 
-        <hr />
-
-        {/* Performance Section */}
-        <section className="mb-4">
-  <div className="mb-2">
-    <h4>Performance</h4>
-  </div>
-
-  {/* Hidden date input */}
-  <input
-    ref={dateInputRef}
-    type="date"
-    className="form-control w-auto visually-hidden"
-    value={date}
-    onChange={(e) => setDate(e.target.value)}
-    max={new Date().toISOString().split("T")[0]}
-  />
-
-  {/* Clickable formatted date box (now below heading) */}
-  <div
-    className="border rounded px-3 py-1 d-inline-block mb-3"
-    style={{ cursor: 'pointer', userSelect: 'none' }}
-    onClick={handleDateClick}
-    title="Click to change date"
-  >
-    <div className='Date'>
-      <span className="label">Date</span>
-      <span className="value">{formatDate(date)}</span>
+      {/* 1. Summary Cards */}
+      <div className="row justify-content-center mb-5">
+  <div className="col-sm-6 col-md-4 mb-3">
+    <div className="card shadow-sm border-0 text-center">
+      <div className="card-body">
+        <h6 className="text-muted">Expired Items</h6>
+        <h2 className="fw-bold" style={{ color: '#dc3545' }}>{summary.total_expired}</h2>
+      </div>
     </div>
   </div>
-
-  {/* Summary content */}
-  <p>Summary data for {formatDate(date)} will appear here.</p>
-</section>
-
+  <div className="col-sm-6 col-md-4 mb-3">
+    <div className="card shadow-sm border-0 text-center">
+      <div className="card-body">
+        <h6 className="text-muted">Low-Stock Items</h6>
+        <h2 className="fw-bold" style={{ color: '#ffc107' }}>{summary.total_low_stock}</h2>
       </div>
+    </div>
+  </div>
+  <div className="col-sm-6 col-md-4 mb-3">
+    <div className="card shadow-sm border-0 text-center">
+      <div className="card-body">
+        <h6 className="text-muted">Total Categories</h6>
+        <h2 className="fw-bold" style={{ color: '#0dcaf0' }}>{totalCategories}</h2>
+      </div>
+    </div>
+  </div>
+</div>
+
+      {/* 2. Product Table */}
+      <section className="mb-4">
+        <h4>All Products</h4>
+        <ProductTable data={products} />
+      </section>
+
+      {/* 3. Download Buttons */}
+      <section>
+        <h4>Download Reports</h4>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-warning"
+            onClick={() => downloadReport('expired')}
+          >
+            Download Expired Items PDF
+          </button>
+          <button
+            className="btn btn-info text-white"
+            onClick={() => downloadReport('refill')}
+          >
+            Download Low-Stock PDF
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => downloadReport('summary')}
+          >
+            Download Summary PDF
+          </button>
+        </div>
+      </section>
     </DashboardLayout>
   );
 }

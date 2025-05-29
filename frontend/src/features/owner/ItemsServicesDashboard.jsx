@@ -49,10 +49,31 @@ function Modal({ visible, onClose, onSave, initialData }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    const name = form.name.trim();
+    const price = parseFloat(form.price);
+    const quantity = parseInt(form.quantity, 10);
+
+    if (!name) {
+      alert("Item name is required.");
+      return;
+    }
+
+    if (isNaN(price) || price < 0) {
+      alert("Price must be a non-negative number.");
+      return;
+    }
+
+    if (isNaN(quantity) || quantity < 0) {
+      alert("Quantity must be a non-negative number.");
+      return;
+    }
+
     const submitData = {
       ...form,
-      price: parseFloat(form.price),
-      quantity: parseInt(form.quantity, 10),
+      name,
+      price,
+      quantity,
       is_active: form.is_active,
     };
     onSave(submitData);
@@ -175,7 +196,6 @@ export default function ItemServicesDashboard({ onLogout }) {
     loadProducts();
   }, []);
 
-  // Load and normalize products
   const loadProducts = () => {
     setLoading(true);
     setError(null);
@@ -188,12 +208,9 @@ export default function ItemServicesDashboard({ onLogout }) {
           is_active: item.is_active ?? true,
         }));
         setItems(normalized);
-        setLoading(false);
       })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   };
 
   const handleEditClick = (item) => {
@@ -234,13 +251,30 @@ export default function ItemServicesDashboard({ onLogout }) {
     }
 
     const updateData = {};
-    if (editForm.name) updateData.name = editForm.name;
-    if (editForm.category) updateData.category = editForm.category;
-    if (editForm.price !== "" && editForm.price !== undefined)
-      updateData.price = parseFloat(editForm.price);
-    if (editForm.quantity !== "" && editForm.quantity !== undefined)
-      updateData.quantity = parseInt(editForm.quantity, 10);
-    if (editForm.is_active !== undefined) updateData.is_active = editForm.is_active;
+    if (editForm.name && editForm.name.trim()) {
+      updateData.name = editForm.name.trim();
+    } else {
+      alert("Item name is required.");
+      return;
+    }
+
+    const price = parseFloat(editForm.price);
+    const quantity = parseInt(editForm.quantity, 10);
+
+    if (isNaN(price) || price < 0) {
+      alert("Price must be a non-negative number.");
+      return;
+    }
+
+    if (isNaN(quantity) || quantity < 0) {
+      alert("Quantity must be a non-negative number.");
+      return;
+    }
+
+    updateData.price = price;
+    updateData.quantity = quantity;
+    updateData.category = editForm.category;
+    updateData.is_active = editForm.is_active;
 
     try {
       await updateProduct(token, editId, updateData);
@@ -263,17 +297,33 @@ export default function ItemServicesDashboard({ onLogout }) {
   };
 
   const handleQuickCreate = async () => {
-    if (!quickCreateName || !quickCreatePrice) {
-      alert("Enter name & price");
+    const name = quickCreateName.trim();
+    const price = parseFloat(quickCreatePrice);
+    const quantity = parseInt(quickCreateQuantity, 10);
+
+    if (!name) {
+      alert("Item name is required.");
       return;
     }
+
+    if (isNaN(price) || price < 0) {
+      alert("Price must be a non-negative number.");
+      return;
+    }
+
+    if (isNaN(quantity) || quantity < 0) {
+      alert("Quantity must be a non-negative number.");
+      return;
+    }
+
     const newItem = {
-      name: quickCreateName,
+      name,
       category: "Uncategorized",
-      price: parseFloat(quickCreatePrice),
-      quantity: parseInt(quickCreateQuantity, 10) || 0,
+      price,
+      quantity,
       is_active: true,
     };
+
     try {
       await createProduct(token, newItem);
       setQuickCreateName("");
@@ -299,6 +349,7 @@ export default function ItemServicesDashboard({ onLogout }) {
         </button>
       </div>
 
+      {/* Actions bar */}
       <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
         <input
           type="search"
@@ -328,6 +379,7 @@ export default function ItemServicesDashboard({ onLogout }) {
         </div>
       </div>
 
+      {/* Table */}
       {loading && <p>Loading products...</p>}
       {error && <p className="text-danger">Error: {error}</p>}
 
@@ -335,17 +387,16 @@ export default function ItemServicesDashboard({ onLogout }) {
         <table className="table align-middle table-borderless">
           <thead>
             <tr>
-              <th style={{ width: "40px" }}>
-                <input type="checkbox" />
-              </th>
+              <th><input type="checkbox" /></th>
               <th>Item</th>
-              <th>Reporting category</th>
+              <th>Category</th>
               <th>Quantity</th>
               <th>Price</th>
-              <th style={{ width: "120px" }}>Actions</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
+            {/* Quick create row */}
             <tr key="quick-create">
               <td>
                 <button className="btn btn-outline-secondary btn-sm">+</button>
@@ -359,7 +410,7 @@ export default function ItemServicesDashboard({ onLogout }) {
                   onChange={(e) => setQuickCreateName(e.target.value)}
                 />
               </td>
-              <td></td>
+              <td />
               <td>
                 <input
                   type="number"
@@ -388,12 +439,11 @@ export default function ItemServicesDashboard({ onLogout }) {
               </td>
             </tr>
 
+            {/* Render items */}
             {items.map((item) =>
               editId === item.id ? (
                 <tr key={item.id}>
-                  <td>
-                    <input type="checkbox" />
-                  </td>
+                  <td><input type="checkbox" /></td>
                   <td>
                     <input
                       name="name"
@@ -429,44 +479,20 @@ export default function ItemServicesDashboard({ onLogout }) {
                     />
                   </td>
                   <td>
-                    <button
-                      className="btn btn-sm btn-primary me-2"
-                      onClick={handleSave}
-                    >
-                      Save
-                    </button>
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={handleCancel}
-                    >
-                      Cancel
-                    </button>
+                    <button className="btn btn-sm btn-primary me-2" onClick={handleSave}>Save</button>
+                    <button className="btn btn-sm btn-secondary" onClick={handleCancel}>Cancel</button>
                   </td>
                 </tr>
               ) : (
                 <tr key={item.id}>
-                  <td>
-                    <input type="checkbox" />
-                  </td>
+                  <td><input type="checkbox" /></td>
                   <td>{item.name}</td>
                   <td>{item.category}</td>
                   <td>{item.quantity}</td>
                   <td>₱{Number(item.price).toFixed(2)}</td>
                   <td>
-                    <button
-                      className="btn btn-link btn-sm me-2"
-                      onClick={() => handleEditClick(item)}
-                      title="Edit"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-link btn-sm text-danger"
-                      onClick={() => handleDeleteClick(item.id)}
-                      title="Delete"
-                    >
-                      Delete
-                    </button>
+                    <button className="btn btn-link btn-sm me-2" onClick={() => handleEditClick(item)}>Edit</button>
+                    <button className="btn btn-link btn-sm text-danger" onClick={() => handleDeleteClick(item.id)}>Delete</button>
                   </td>
                 </tr>
               )
